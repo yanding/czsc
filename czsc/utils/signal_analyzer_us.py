@@ -15,7 +15,7 @@ from typing import List, AnyStr
 from concurrent.futures import ProcessPoolExecutor
 
 
-class SignalPerformance:
+class SignalPerformance_us:
     """信号表现分析"""
 
     def __init__(self, dfs: pd.DataFrame, keys: List[AnyStr]):
@@ -112,7 +112,7 @@ class SignalPerformance:
         return res
 
 
-class SignalAnalyzer:
+class SignalAnalyzer_us:
     def __init__(self, symbols, read_bars, signals_config, results_path, **kwargs):
         """信号分析
 
@@ -162,7 +162,7 @@ class SignalAnalyzer:
 
                 sigs.drop(['freq', 'cache'], axis=1, inplace=True)
                 update_nbars(sigs, price_col='open', move=1,
-                             numbers=(1, 2, 3, 5, 8, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100))
+                             numbers=(1, 2, 3, 5,6,8, 10,12,13,10, 20, 30, 40, 50, 60, 70, 80, 90, 100))
                 sigs.to_parquet(file_cache)
             return sigs
         except Exception as e:
@@ -225,7 +225,7 @@ class SignalAnalyzer:
         raw_results_path = os.path.join(results_path, 'raw_results')
         os.makedirs(raw_results_path, exist_ok=True)
         for key in tqdm(sig_keys, desc="分析信号表现"):
-            sp = SignalPerformance(dfs, keys=[key])
+            sp = SignalPerformance_us(dfs, keys=[key])
             res = sp.report(os.path.join(raw_results_path, f'{key}.xlsx'))
             for k, v in res.items():
                 sps[k].append(v)
