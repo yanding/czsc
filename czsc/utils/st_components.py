@@ -1,5 +1,6 @@
 import czsc
 import hashlib
+import optuna
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -15,10 +16,11 @@ def show_daily_return(df, **kwargs):
     :param df: pd.DataFrame，数据源
     :param kwargs:
 
-        - title: str，标题
+        - sub_title: str，标题
         - stat_hold_days: bool，是否展示持有日绩效指标，默认为 True
         - legend_only_cols: list，仅在图例中展示的列名
         - use_st_table: bool，是否使用 st.table 展示绩效指标，默认为 False
+        - plot_cumsum: bool，是否展示日收益累计曲线，默认为 True
 
     """
     if not df.index.dtype == 'datetime64[ns]':
@@ -73,10 +75,9 @@ def show_daily_return(df, **kwargs):
     use_st_table = kwargs.get("use_st_table", False)
 
     with st.container():
-        title = kwargs.get("title", "")
-        if title:
-            st.subheader(title)
-            st.divider()
+        sub_title = kwargs.get("sub_title", "")
+        if sub_title:
+            st.subheader(sub_title, divider="rainbow")
 
         with st.expander("交易日绩效指标", expanded=True):
             if use_st_table:
@@ -88,19 +89,21 @@ def show_daily_return(df, **kwargs):
             with st.expander("持有日绩效指标", expanded=False):
                 st.dataframe(_stats(df, type_='持有日'), use_container_width=True)
 
-        df = df.cumsum()
-        fig = px.line(df, y=df.columns.to_list(), title="日收益累计曲线")
-        fig.update_xaxes(title='')
+        if kwargs.get("plot_cumsum", True):
+            df = df.cumsum()
+            fig = px.line(df, y=df.columns.to_list(), title="日收益累计曲线")
+            fig.update_xaxes(title='')
 
-        # 添加每年的开始第一个日期的竖线
-        for year in range(df.index.year.min(), df.index.year.max() + 1):
-            first_date = df[df.index.year == year].index.min()
-            fig.add_vline(x=first_date, line_dash='dash', line_color='red')
+            # 添加每年的开始第一个日期的竖线
+            for year in range(df.index.year.min(), df.index.year.max() + 1):
+                first_date = df[df.index.year == year].index.min()
+                fig.add_vline(x=first_date, line_dash='dash', line_color='red')
 
-        for col in kwargs.get("legend_only_cols", []):
-            fig.update_traces(visible="legendonly", selector=dict(name=col))
-
-        st.plotly_chart(fig, use_container_width=True)
+            for col in kwargs.get("legend_only_cols", []):
+                fig.update_traces(visible="legendonly", selector=dict(name=col))
+            # fig.update_layout(legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01))
+            fig.update_layout(margin=dict(l=0, r=0, b=0))
+            st.plotly_chart(fig, use_container_width=True)
 
 
 def show_monthly_return(df, ret_col='total', title="月度累计收益", **kwargs):
@@ -348,10 +351,12 @@ def show_weight_backtest(dfw, **kwargs):
 
         - fee: 单边手续费，单位为BP，默认为2BP
         - digits: 权重小数位数，默认为2
+        - show_drawdowns: bool，是否展示最大回撤，默认为 False
         - show_daily_detail: bool，是否展示每日收益详情，默认为 False
         - show_backtest_detail: bool，是否展示回测详情，默认为 False
         - show_splited_daily: bool，是否展示分段日收益表现，默认为 False
         - show_yearly_stats: bool，是否展示年度绩效指标，默认为 False
+        - show_monthly_return: bool，是否展示月度累计收益，默认为 False
 
     """
     fee = kwargs.get("fee", 2)
@@ -365,20 +370,25 @@ def show_weight_backtest(dfw, **kwargs):
     stat = wb.results['绩效评价']
 
     st.divider()
-    c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([1, 1, 1, 1, 1, 1, 1, 1])
+    c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns([1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
     c1.metric("盈亏平衡点", f"{stat['盈亏平衡点']:.2%}")
-    c2.metric("单笔收益", f"{stat['单笔收益']} BP")
+    c2.metric("单笔收益（BP）", f"{stat['单笔收益']}")
     c3.metric("交易胜率", f"{stat['交易胜率']:.2%}")
     c4.metric("持仓K线数", f"{stat['持仓K线数']}")
     c5.metric("最大回撤", f"{stat['最大回撤']:.2%}")
     c6.metric("年化收益率", f"{stat['年化']:.2%}")
     c7.metric("夏普比率", f"{stat['夏普']:.2f}")
     c8.metric("卡玛比率", f"{stat['卡玛']:.2f}")
+    c9.metric("年化波动率", f"{stat['年化波动率']:.2%}")
+    c10.metric("多头占比", f"{stat['多头占比']:.2%}")
     st.divider()
 
-    dret = wb.results['品种等权日收益']
+    dret = wb.results['品种等权日收益'].copy()
     dret.index = pd.to_datetime(dret.index)
     show_daily_return(dret, legend_only_cols=dfw['symbol'].unique().tolist(), **kwargs)
+
+    if kwargs.get("show_drawdowns", False):
+        show_drawdowns(dret, ret_col='total', sub_title="")
 
     if kwargs.get("show_backtest_detail", False):
         c1, c2 = st.columns([1, 1])
@@ -397,6 +407,10 @@ def show_weight_backtest(dfw, **kwargs):
     if kwargs.get("show_yearly_stats", False):
         with st.expander("年度绩效指标", expanded=False):
             show_yearly_stats(dret, ret_col='total')
+
+    if kwargs.get("show_monthly_return", False):
+        with st.expander("月度累计收益", expanded=False):
+            show_monthly_return(dret, ret_col='total')
 
     return wb
 
@@ -564,22 +578,16 @@ def show_ts_rolling_corr(df, col1, col2, **kwargs):
     if sub_title:
         st.subheader(sub_title, divider="rainbow", anchor=hashlib.md5(sub_title.encode('utf-8')).hexdigest()[:8])
 
-    min_periods = kwargs.get('min_periods', None)
-    window = kwargs.get('window', None)
+    min_periods = kwargs.get('min_periods', 300)
+    window = kwargs.get('window', 2000)
     corr_method = kwargs.get('corr_method', 'pearson')
-
-    if not window or window <= 0:
-        method = 'expanding'
-        corr_result = df[col1].expanding(min_periods=min_periods).corr(df[col2], pairwise=True)
-    else:
-        method = 'rolling'
-        corr_result = df[col1].rolling(window=window, min_periods=min_periods).corr(df[col2], pairwise=True)
+    corr_result = df[col1].rolling(window=window, min_periods=min_periods).corr(df[col2], pairwise=True)
 
     corr_result = corr_result.dropna()
     corr_result = corr_result.rename('corr')
     line = go.Scatter(x=corr_result.index, y=corr_result, mode='lines', name='corr')
     layout = go.Layout(
-        title=f'滑动（{method}）相关系数',
+        title='滑动相关系数',
         xaxis=dict(title=''),
         yaxis=dict(title='corr'),
         annotations=[
@@ -640,7 +648,7 @@ def show_ts_self_corr(df, col, **kwargs):
         st.subheader(sub_title, divider="rainbow", anchor=hashlib.md5(sub_title.encode('utf-8')).hexdigest()[:8])
         c1, c2, c3, c4 = st.columns(4)
         min_periods = int(c1.number_input('最小滑动窗口长度', value=20, min_value=0, step=1))
-        window = int(c2.number_input('滑动窗口长度', value=0, step=1, help='0 表示按 expanding 方式滑动'))
+        window = int(c2.number_input('滑动窗口长度', value=200, step=1))
         corr_method = c3.selectbox('相关系数计算方法', ['pearson', 'kendall', 'spearman'])
         n = int(c4.number_input('自相关滞后阶数', value=1, min_value=1, step=1))
 
@@ -761,6 +769,7 @@ def show_out_in_compare(df, ret_col, mid_dt, **kwargs):
     df = df[[ret_col]].copy().fillna(0)
     df.sort_index(inplace=True, ascending=True)
 
+    mid_dt = pd.to_datetime(mid_dt)
     dfi = df[df.index < mid_dt].copy()
     dfo = df[df.index >= mid_dt].copy()
 
@@ -806,4 +815,78 @@ def show_out_in_compare(df, ret_col, mid_dt, **kwargs):
             '新高占比': '{:.2%}',
         }
     )
-    st.dataframe(df_stats, use_container_width=True)
+    st.dataframe(df_stats, use_container_width=True, hide_index=True)
+
+
+def show_optuna_study(study: optuna.Study, **kwargs):
+    # https://optuna.readthedocs.io/en/stable/reference/visualization/index.html
+    # https://zh-cn.optuna.org/reference/visualization.html
+    from czsc.utils.optuna import optuna_good_params
+
+    sub_title = kwargs.pop("sub_title", "Optuna Study Visualization")
+    if sub_title:
+        anchor = hashlib.md5(sub_title.encode("utf-8")).hexdigest().upper()[:6]
+        st.subheader(sub_title, divider="rainbow", anchor=anchor)
+
+    fig = optuna.visualization.plot_contour(study)
+    st.plotly_chart(fig, use_container_width=True)
+
+    fig = optuna.visualization.plot_slice(study)
+    st.plotly_chart(fig, use_container_width=True)
+
+    with st.expander("最佳参数列表", expanded=False):
+        params = optuna_good_params(study, keep=kwargs.pop("keep", 0.2))
+        st.dataframe(params, use_container_width=True)
+    return study
+
+
+def show_drawdowns(df, ret_col, **kwargs):
+    """展示最大回撤分析
+
+    :param df: pd.DataFrame, columns: cells, index: dates
+    :param ret_col: str, 回报率列名称
+    :param kwargs:
+
+        - sub_title: str, optional, 子标题
+        - top: int, optional, 默认10, 返回最大回撤的数量
+
+    """
+    assert isinstance(df, pd.DataFrame), "df 必须是 pd.DataFrame 类型"
+    if not df.index.dtype == 'datetime64[ns]':
+        df['dt'] = pd.to_datetime(df['dt'])
+        df.set_index('dt', inplace=True)
+    assert df.index.dtype == 'datetime64[ns]', "index必须是datetime64[ns]类型, 请先使用 pd.to_datetime 进行转换"
+    df = df[[ret_col]].copy().fillna(0)
+    df.sort_index(inplace=True, ascending=True)
+    df['cum_ret'] = df[ret_col].cumsum()
+    df['cum_max'] = df['cum_ret'].cummax()
+    df['drawdown'] = df['cum_ret'] - df['cum_max']
+
+    sub_title = kwargs.get('sub_title', "最大回撤分析")
+    if sub_title:
+        st.subheader(sub_title, divider="rainbow")
+
+    top = kwargs.get('top', 10)
+    if top is not None:
+        with st.expander(f"TOP{top} 最大回撤详情", expanded=False):
+            dft = czsc.top_drawdowns(df[ret_col].copy(), top=10)
+            dft = dft.style.background_gradient(cmap='RdYlGn_r', subset=['净值回撤'])
+            dft = dft.background_gradient(cmap='RdYlGn', subset=['回撤天数', '恢复天数'])
+            dft = dft.format({'净值回撤': '{:.2%}', '回撤天数': '{:.0f}', '恢复天数': '{:.0f}'})
+            st.dataframe(dft, use_container_width=True)
+
+    # 画图: 净值回撤
+    drawdown = go.Scatter(x=df.index, y=df["drawdown"], fillcolor="red", fill='tozeroy', mode="lines", name="回测曲线")
+    fig = go.Figure(drawdown)
+
+    # 增加 10% 分位数线，30% 分位数线，50% 分位数线，同时增加文本标记
+    for q in [0.1, 0.3, 0.5]:
+        y1 = df["drawdown"].quantile(q)
+        fig.add_hline(y=y1, line_dash="dot", line_color="green", line_width=2)
+        fig.add_annotation(x=df.index[-1], y=y1, text=f"{q:.1%} (DD: {y1:.2%})", showarrow=False, yshift=10)
+
+    fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+    fig.update_layout(title="", xaxis_title="", yaxis_title="净值回撤", legend_title="回撤曲线")
+    # 限制 绘制高度
+    fig.update_layout(height=300)
+    st.plotly_chart(fig, use_container_width=True)
