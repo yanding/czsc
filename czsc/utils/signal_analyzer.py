@@ -154,10 +154,10 @@ class SignalAnalyzer:
                 sigs = pd.read_parquet(file_cache)
             else:
                 freqs = get_signals_freqs(deepcopy(self.signals_config))
-                sdt = self.kwargs.get('sdt', '20170101')
-                edt = self.kwargs.get('edt', '20240101')
-                bar_sdt = self.kwargs.get('bar_sdt', '20150101')
-                bars = self.read_bars(symbol, freqs[0], bar_sdt, edt, fq='后复权')
+                sdt = self.kwargs.get("sdt", "20170101")
+                edt = self.kwargs.get("edt", "20220101")
+                bar_sdt = self.kwargs.get("bar_sdt", "20150101")
+                bars = self.read_bars(symbol, freqs[0], bar_sdt, edt, fq="后复权")
                 if len(bars) < 100:
                     logger.error(f"{symbol} 信号生成失败：数据量不足")
                     return pd.DataFrame()
