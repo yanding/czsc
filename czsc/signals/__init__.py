@@ -266,3 +266,7 @@ from czsc.signals.xls import (
     xl_bar_trend_V240330,
     xl_bar_trend_V240331,
 )
+
+from czsc.signals.toscci import (
+    toscci_bullZLR_V05042024
+)

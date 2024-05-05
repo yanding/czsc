@@ -43,13 +43,13 @@ data = [
 SYMBOLS=set(record['stock_symbol'] for record in data)
 
 
-def process_tos_weekly_update_per_year(tos_update_folder, output_folder,data=data):
-# Accessing elements in the list of dictionaries
-    for entry in data:
-        # Accessing values in each dictionary
-        for key, value in entry.items():
-            print(f"{key}: {value}")
-        process_tos_weekly_update_per_symbol_per_strategy_per_year(tos_update_folder, output_folder,symbol=entry['stock_symbol'],timeframe=entry['tf'],strategy_type=entry['strategy_type'])
+# def process_tos_weekly_update_per_year(tos_update_folder, output_folder,data=data):
+# # Accessing elements in the list of dictionaries
+#     for entry in data:
+#         # Accessing values in each dictionary
+#         for key, value in entry.items():
+#             print(f"{key}: {value}")
+#         process_tos_weekly_update_per_symbol_per_strategy_per_year(tos_update_folder, output_folder,symbol=entry['stock_symbol'],timeframe=entry['tf'],strategy_type=entry['strategy_type'])
 
 
 
@@ -72,7 +72,7 @@ def get_symbols(name='ALL',symbols=SYMBOLS, **kwargs):
 
 def get_timeframes(data, symbol="SPY", freq='1分钟', strategy_type='VolBIDASK'):
     # Filter data based on provided parameters
-    filtered_data = [record['freq'] for record in data if
+    filtered_data = [record['tf'] for record in data if
                      record['stock_symbol'] == symbol and record['freq'] == freq and record['strategy_type'] == strategy_type]
 
     return filtered_data[0]
