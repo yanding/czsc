@@ -14,7 +14,7 @@ from czsc.analyze import CZSC
 from czsc.objects import Freq, Operate, Direction, Signal, Factor, Event, RawBar, NewBar, Position, ZS
 from czsc.strategies import CzscStrategyBase, CzscJsonStrategy
 from czsc.sensors import holds_concepts_effect, CTAResearch, EventMatchSensor
-from czsc.sensors.feature import FixedNumberSelector, FeatureAnalyzeBase
+from czsc.sensors.feature import FixedNumberSelector
 from czsc.traders import (
     CzscTrader,
     CzscSignals,
@@ -67,7 +67,7 @@ from czsc.utils import (
     cal_trade_price,
     update_bbars,
     update_tbars,
-    update_nbars,
+    update_nxb,
     risk_free_returns,
     resample_to_daily,
 
@@ -77,6 +77,7 @@ from czsc.utils import (
     SignalAnalyzer,
     SignalPerformance,
     daily_performance,
+    rolling_daily_performance,
     weekly_performance,
     holds_performance,
     net_value_stats,
@@ -154,7 +155,6 @@ __email__ = "zeng_bin8888@163.com"
 __date__ = "20240302"
 
 
-def welcome():
     print(f"欢迎使用CZSC！当前版本标识为 {__version__}@{__date__}\n")
     aphorism.print_one()
 
