@@ -97,7 +97,7 @@ def get_dataframe(c: CZSC, **kwargs):
     """
     bars=c.bars_raw
     data = {
-        'datetime': np.array([x.dt for x in bars])
+        'datetime': np.array([x.dt for x in bars]),
         'open': np.array([x.open for x in bars]),
         'high': np.array([x.high for x in bars]),
         'low': np.array([x.low for x in bars]),
@@ -180,6 +180,55 @@ def get_diff(c: CZSC, **kwargs):
     diff=df['close']-ema
     return diff
 
+
+# def toscci_bullZLR_V05042024(c: CZSC, **kwargs) -> OrderedDict:
+#     """CCI Signal bullZLR
+
+#     参数模板："{freq}_D{di}CCI{cci_n}#TCCI{tcci_n}_BSV05042024"
+
+#      **信号逻辑：**
+
+#     1. CCI大于100，且向上突破均线，看多；
+#     2. CCI小于-100，且向下突破均线，看空；
+
+#     **信号列表：**
+
+#     - Signal('30分钟_D1CCI14#TCCI6_BSV05042024_多头_向上_任意_0')
+
+#     :param c: CZSC对象
+#     :param kwargs: 参数字典
+#         - :param di: 信号计算截止倒数第i根K线
+#         - :param tcci_n: TCCI的计算周期
+#         - :param cci_n: CCI的计算周期
+#     :return: 返回信号结果
+#     """
+#     di = int(kwargs.get("di", 1))
+#     tcci_n = int(kwargs.get("tcci_n", 6))
+#     cci_n = int(kwargs.get("cci_n", 14))
+#     tcci=get_cci(c,timeperiod=tcci_n)
+#     tcci_shift_1=tcci.shift(1)
+#     tcci_shift_2=tcci.shift(2)
+#     cci=get_cci(c,timeperiod=cci_n)
+#     tcci_cross_above_N100=crossed_above(tcci,-100)
+#     diff = get_diff(c)
+#     cciGreenTrendCount=get_count(cci,200,0,-60)
+#     cciGreenCount=get_count(cci,0,0,0)
+#     freq = c.freq.value
+
+#     k1, k2, k3 = f"{freq}_D{di}CCI{cci_n}#TCCI{tcci_n}_BSV05042024".split('_')
+#     v1 = '其他'
+#     if (tcci_cross_above_N100 and diff>0 and 
+#         (tcci_shift_1 < -130 or tcci_shift_2 <-130) and
+#         ((cci-cci.shift(1)) >-15 or (tcci-tcci_shift_1>=70)) and
+#          cciGreenTrendCount >12):
+#         v1 = '多头'
+
+#     if v1 == '其他':
+#         return create_single_signal(k1=k1, k2=k2, k3=k3, v1=v1)
+
+#     v2 = "向上" if cciGreenCount else "向下"
+#     return create_single_signal(k1=k1, k2=k2, k3=k3, v1=v1, v2=v2)
+
 def toscci_bullZLR_V05042024(c: CZSC, **kwargs) -> OrderedDict:
     """CCI Signal bullZLR
 
@@ -192,7 +241,7 @@ def toscci_bullZLR_V05042024(c: CZSC, **kwargs) -> OrderedDict:
 
     **信号列表：**
 
-    - Signal('30分钟_D1CCI20#SMA#5_BS辅助V230323_多头_向上_任意_0')
+    - Signal('30分钟_D1CCI14#TCCI6_BSV05042024_多头_向上_任意_0')
 
     :param c: CZSC对象
     :param kwargs: 参数字典
@@ -201,23 +250,44 @@ def toscci_bullZLR_V05042024(c: CZSC, **kwargs) -> OrderedDict:
         - :param cci_n: CCI的计算周期
     :return: 返回信号结果
     """
+#    TODO
+#    TODO
     di = int(kwargs.get("di", 1))
     tcci_n = int(kwargs.get("tcci_n", 6))
     cci_n = int(kwargs.get("cci_n", 14))
     tcci=get_cci(c,timeperiod=tcci_n)
+    cci=get_cci(c,timeperiod=cci_n)
+#    TODO
+#    TODO
+
+    cache_key_tcci = update_cci_cache(c, timeperiod=tcci_n)
+    cache_key_cci = update_cci_cache(c, timeperiod=cci_n)
+    cache_key_ma = update_ma_cache(c, ma_type=ma_type, timeperiod=n * m)
+    cache_key_ema = update_ma_cache(c, ma_type="EMA", timeperiod=n)
+
+    tcci_cross_above_N100=crossed_above(tcci,-100)
     tcci_shift_1=tcci.shift(1)
     tcci_shift_2=tcci.shift(2)
-    cci=get_cci(c,timeperiod=cci_n)
-    tcci_cross_above_N100=crossed_above(tcci,-100)
+    ema = np.array([x.cache[cache_key_ema] for x in bars])
+
+    bars = get_sub_elements(c.bars_raw, di=di, n=2)
+    cci = bars[-1].cache[cache_key_cci]
+    cci1 = bars[-2].cache[cache_key_cci]
+    tcci = bars[-1].cache[cache_key_tcci]
+    tcci_1 = bars[-2].cache[cache_key_tcci]
+    tcci_2 = bars[-3].cache[cache_key_tcci]
+    
     diff = get_diff(c)
     cciGreenTrendCount=get_count(cci,200,0,-60)
     cciGreenCount=get_count(cci,0,0,0)
+    freq = c.freq.value
 
-    k1, k2, k3 = f"{freq}_D{di}CCI{n}#{ma_type}#{m}_BS辅助V230323".split('_')
+    k1, k2, k3 = f"{freq}_D{di}CCI{cci_n}#TCCI{tcci_n}_BSV05042024".split('_')
     v1 = '其他'
-    if tcci_cross_above_N100 and diff>0 and (tcci_shift_1 < -130 or tcci_shift_2 <-130) 
-         and ((cci-cci.shift(1)) >-15 or (tcci-tcci_shift_1>=70))
-         and cciGreenTrendCount >12
+    if (tcci_cross_above_N100 and diff>0 and 
+        (tcci_1 < -130 or tcci_2 <-130) and
+        ((cci-cci_1) >-15 or (tcci-tcci_1>=70)) and
+         cciGreenTrendCount >12):
         v1 = '多头'
 
     if v1 == '其他':
@@ -225,4 +295,3 @@ def toscci_bullZLR_V05042024(c: CZSC, **kwargs) -> OrderedDict:
 
     v2 = "向上" if cciGreenCount else "向下"
     return create_single_signal(k1=k1, k2=k2, k3=k3, v1=v1, v2=v2)
-
